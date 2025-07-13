@@ -1,36 +1,34 @@
-def schedule_jobs(jobs):
-    grouped_jobs = {}
-    
-    for job in jobs:
-        app_version_id = job['app_version_id']
-        if app_version_id not in grouped_jobs:
-            grouped_jobs[app_version_id] = []
-        grouped_jobs[app_version_id].append(job)
+from collections import defaultdict
 
-    return grouped_jobs
+class JobScheduler:
+    def __init__(self):
+        # Group jobs by app_version_id
+        self.job_groups = defaultdict(list)
+        # Simulate available agents per target type
+        self.agents = {
+            "emulator": ["emu-1", "emu-2"],
+            "device": ["dev-1", "dev-2"],
+            "browserstack": ["bs-1", "bs-2"]
+        }
+        self.agent_assignments = {}  # job_id -> agent
 
-def assign_jobs_to_agents(grouped_jobs, agents):
-    assigned_jobs = {}
-    
-    for app_version_id, jobs in grouped_jobs.items():
-        for job in jobs:
-            target = job['target']
-            available_agents = [agent for agent in agents if agent['target'] == target and agent['available']]
-            
-            if available_agents:
-                agent = available_agents[0]  # Assign to the first available agent
-                if agent['id'] not in assigned_jobs:
-                    assigned_jobs[agent['id']] = []
-                assigned_jobs[agent['id']].append(job)
-                agent['available'] = False  # Mark agent as busy
+    def schedule_job(self, job):
+        # Group jobs by app_version_id
+        self.job_groups[job.app_version_id].append(job)
+        # Assign to an available agent for the target
+        agent = self._assign_agent(job.target)
+        if agent:
+            self.agent_assignments[job.id] = agent
+            return agent
+        return None
 
-    return assigned_jobs
+    def _assign_agent(self, target):
+        # Pick the first available agent for the target type
+        agents = self.agents.get(target, [])
+        return agents[0] if agents else None
 
-def release_agent(agent_id, agents):
-    for agent in agents:
-        if agent['id'] == agent_id:
-            agent['available'] = True
-            break
+    def get_jobs_for_app_version(self, app_version_id):
+        return self.job_groups.get(app_version_id, [])
 
-def check_agent_availability(agents):
-    return [agent for agent in agents if agent['available']]
+    def get_agent_for_job(self, job_id):
+        return self.agent_assignments.get(job_id)

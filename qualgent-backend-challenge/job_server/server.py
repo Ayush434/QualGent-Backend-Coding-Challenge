@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify
-from queue import JobQueue
+from job_queue import JobQueue
 from scheduler import JobScheduler
 from models import Job
 

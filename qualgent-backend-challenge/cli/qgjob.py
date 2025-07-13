@@ -2,7 +2,7 @@ import argparse
 import requests
 import sys
 
-API_URL = "http://localhost:5000"  # Change if your server runs elsewhere
+API_URL = "http://127.0.0.1:5000"  # Change if your server runs elsewhere
 
 def submit_job(args):
     payload = {
