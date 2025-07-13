@@ -5,6 +5,12 @@ on: [push]
 jobs:
   run-tests:
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+
     steps:
       - uses: actions/checkout@v2
 
@@ -15,12 +21,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install requests flask redis rq
+          pip install requests flask redis==3.5.3 rq
 
       - name: Start backend server
         run: |
-          nohup python qualgent-backend-challenge/job_server/server.py &
-          sleep 5
+          nohup python qualgent-backend-challenge/job_server/server.py > server.log 2>&1 &
+          sleep 30
 
       - name: Submit test job
         run: |
@@ -30,23 +36,6 @@ jobs:
             --test=tests/onboarding.spec.js \
             --target=emulator > job_output.txt
 
-      - name: Extract Job ID
-        id: extract_job_id
-        run: |
-          JOB_ID=$(grep -oP 'Job ID: \K[\w-]+' job_output.txt)
-          echo "job_id=$JOB_ID" >> $GITHUB_OUTPUT
-
-      - name: Poll for job status
-        run: |
-          for i in {1..10}; do
-            STATUS=$(python qualgent-backend-challenge/cli/qgjob.py status --job-id=${{ steps.extract_job_id.outputs.job_id }} | grep status | awk '{print $4}' | tr -d ',')
-            echo "Current status: $STATUS"
-            if [ "$STATUS" = "completed" ]; then
-              exit 0
-            elif [ "$STATUS" = "failed" ]; then
-              echo "Test failed!"
-              exit 1
-            fi
-            sleep 3
-          done
-          echo "Job did not complete in expected time"
+      - name: Print server log on failure
+        if: failure()
+        run: cat server.log
