@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  job_server:
+    build:
+      context: ./job_server
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./job_server:/app
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+
+  cli:
+    build:
+      context: ./cli
+      dockerfile: Dockerfile
+    volumes:
+      - ./cli:/app
+    depends_on:
+      - job_server
+
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
