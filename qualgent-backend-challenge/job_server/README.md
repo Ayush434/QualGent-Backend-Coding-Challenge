@@ -1,49 +1,106 @@
-# Job Server Documentation
+# QualGent Backend Coding Challenge
 
 ## Overview
-The job server is a backend service designed to manage and orchestrate test jobs for the AppWright QA automation platform. It receives job submissions, queues them, groups them by application version, and assigns them to available agents for execution.
+
+This project is a simple job scheduling backend with:
+- A Flask API for job submission and status checking
+- Redis + RQ for job queueing and processing
+- A CLI tool for submitting and tracking jobs
+- GitHub Actions workflow for CI/CD testing
+
+---
 
 ## Setup Instructions
-To set up the job server, follow these steps:
 
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/yourusername/qualgent-backend-challenge.git
-   cd qualgent-backend-challenge/job_server
+1. **Clone the repository**
+   ```sh
+   git clone <your-repo-url>
+   cd QualGent-Backend-Coding-Challenge
    ```
 
-2. **Install Dependencies**
-   Ensure you have Python and pip installed. Then, install the required packages:
-   ```bash
-   pip install -r ../requirements.txt
+2. **Install Python dependencies**
+   ```sh
+   pip install -r requirements.txt
+   ```
+   *(If you don’t have a `requirements.txt`, install manually: `pip install flask requests redis==3.5.3 rq`)*
+
+3. **Start Redis**
+   - **Locally:**  
+     ```sh
+     redis-server
+     ```
+   - **Or with Docker:**  
+     ```sh
+     docker run -p 6379:6379 redis
+     ```
+
+4. **Start the backend server**
+   ```sh
+   python qualgent-backend-challenge/job_server/server.py
    ```
 
-3. **Run the Server**
-   Start the job server using the following command:
-   ```bash
-   python server.py
+5. **(Optional) Start an RQ worker**
+   ```sh
+   rq worker
    ```
 
-   The server will start listening for incoming requests on the specified port.
+---
 
-## Job Orchestration
-The job server handles the following tasks:
+## Architecture Diagram
 
-- **Receive Job Submissions**: The server accepts job submissions via REST API endpoints.
-- **Queue Jobs**: Jobs are added to a queue for processing. The queueing mechanism can be configured to use Redis or another preferred service.
-- **Group Jobs**: Jobs are grouped by `app_version_id` to minimize the overhead of reinstalling applications on devices.
-- **Assign Jobs**: The server assigns jobs to available agents based on device availability and target type (emulator, device, or BrowserStack).
-- **Track Status**: The server tracks the status of each job, allowing users to check the progress and results of their submissions.
-
-## Grouping and Scheduling
-Jobs are grouped based on the `app_version_id` to ensure that tests targeting the same version are executed together. This approach reduces the need for multiple installations of the same application on devices, optimizing the testing process.
-
-## End-to-End Test Submission
-To submit a test job, use the `qgjob` CLI tool. For example:
-```bash
-qgjob submit --org-id=qualgent --app-version-id=xyz123 --test=tests/onboarding.spec.js
 ```
-This command will submit a job for the specified test, which will be processed by the job server.
++-------------------+         +-------------------+         +-------------------+
+|    CLI / API      | <-----> |    Flask Server   | <-----> |    Redis + RQ     |
+| (qgjob.py, curl)  |         | (server.py)       |         | (job queue/worker)|
++-------------------+         +-------------------+         +-------------------+
+         |                           |                                 |
+         |---------------------------|---------------------------------|
+                                 |
+                        +-------------------+
+                        |   JobScheduler    |
+                        |   (scheduler.py)  |
+                        +-------------------+
+```
 
-## Additional Information
-For more details on the CLI tool, refer to the documentation in the `cli/README.md` file.
+---
+
+## How Grouping/Scheduling Works
+
+- When a job is submitted, it is grouped by `app_version_id` in the `JobScheduler`.
+- Jobs with the same `app_version_id` are batched together for efficient scheduling.
+- Each job is assigned to an available agent based on its `target` (e.g., emulator, device, browserstack).
+- The job is then enqueued for processing by an RQ worker.
+
+---
+
+## How to Run an End-to-End Test Submission
+
+1. **Start Redis and the backend server** (see Setup above).
+
+2. **Submit a job using the CLI:**
+   ```sh
+   python qualgent-backend-challenge/cli/qgjob.py submit \
+     --org-id=qualgent \
+     --app-version-id=xyz123 \
+     --test=tests/onboarding.spec.js \
+     --target=emulator
+   ```
+
+3. **Check job status:**
+   ```sh
+   python qualgent-backend-challenge/cli/qgjob.py status --job-id=<JOB_ID>
+   ```
+
+4. **(Optional) Run the GitHub Actions workflow**
+   - Push your code to GitHub.
+   - Go to the Actions tab to see the workflow run an end-to-end test.
+
+---
+
+## Notes
+
+- Make sure Redis is running before starting the backend.
+- The CLI tool requires the backend server to be running on `localhost:5000`.
+- The GitHub Actions workflow will automatically test the full flow on every push.
+
+---
