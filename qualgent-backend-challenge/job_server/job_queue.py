@@ -1,12 +1,33 @@
 from redis import Redis
 from rq import Queue
+import subprocess
 import json
 
 def process_job(payload_json):
     job_payload = json.loads(payload_json)
     job_id = job_payload["job_id"]
+    test_path = job_payload["test_path"]
+    target = job_payload["target"]
+
+    # Map your target to an AppWright project name if needed
+    project = target  # e.g., "emulator", "device", "browserstack"
+
     print(f"Processing job: {json.dumps(job_payload)}")
-    return {"status": "completed", "job_id": job_id}
+
+    # Run the AppWright test
+    try:
+        result = subprocess.run(
+            ["npx", "appwright", "test", "--project", project, test_path],
+            capture_output=True, text=True, check=True
+        )
+        print(result.stdout)
+        status = "completed"
+    except subprocess.CalledProcessError as e:
+        print(e.stdout)
+        print(e.stderr)
+        status = "failed"
+
+    return {"status": status, "job_id": job_id}
 
 
 class JobQueue:
